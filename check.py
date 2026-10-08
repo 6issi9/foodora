@@ -3,7 +3,6 @@ import re
 import requests
 from playwright.sync_api import sync_playwright
 
-# ВСТАВЬТЕ ВАШИ ДАННЫЕ
 URL = "https://www.foodora.at/subscription"
 CODE = "ВАШ_КОД"
 TOKEN = "ВАШ_ТОКЕН"
@@ -15,26 +14,34 @@ def tg(text):
 
 with sync_playwright() as p:
     b = p.chromium.launch()
-    page = b.new_page(viewport={"width": 430, "height": 900})
+    page = b.new_page(viewport={"width": 1280, "height": 800})
     try:
-        # domcontentloaded вместо networkidle, чтобы не зависать
         page.goto(URL, wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(4000)
 
-        # Простой локатор для текстового поля
-        inp = page.locator("input[type='text'], input[type='password'], input").first
-        inp.fill(CODE)
+        # Пробуем кликнуть по куки
+        for selector in ["#cookie-comply", ".cookie-comply", "button:has-text('Accept')", "button:has-text('Akzeptieren')"]:
+            if page.locator(selector).count() > 0:
+                try:
+                    page.locator(selector).first.click(timeout=2000)
+                except Exception:
+                    pass
+
+        # Делаем скриншот, чтобы точно увидеть, что на экране
+        page.screenshot(path="debug.png", full_page=True)
+
+        # Ждем только видимые поля
+        inp = page.locator("input:visible").first
+        inp.fill(CODE, timeout=5000)
         inp.press("Enter")
         page.wait_for_timeout(2000)
 
-        # Закрываем баннер/жмем кнопку сквозь перекрытие (force=True)
         if page.locator("text=Monatliches Abo").count() == 0:
             btn = page.locator("button:visible").first
             if btn.count():
                 btn.click(force=True)
 
-        # Ждем максимум 15 секунд
-        page.wait_for_selector("text=Monatliches Abo", timeout=15000)
+        page.wait_for_selector("text=Monatliches Abo", timeout=10000)
         text = page.inner_text("body")
 
     except Exception as e:
