@@ -16,29 +16,27 @@ with sync_playwright() as p:
     b = p.chromium.launch()
     page = b.new_page(viewport={"width": 430, "height": 900})
     try:
-        # Загружаем страницу
         page.goto(URL, wait_until="domcontentloaded", timeout=30000)
         page.wait_for_timeout(3000)
 
-        # Закрываем баннер куки, если он есть
+        # Закрываем баннер куки
         try:
             page.locator("#cookie-comply, .cookie-comply, button:has-text('Accept'), button:has-text('Akzeptieren')").first.click(timeout=3000)
         except Exception:
             pass
 
-        # Находим поле для ввода кода
-        inp = page.locator("input[type='text']:visible, input[type='password']:visible, input:not([type='radio']):visible").first
+        # Безопасный поиск поля для ввода
+        inp = page.locator("input:not([type='radio']):not([type='checkbox']):visible").first
         inp.fill(CODE)
         inp.press("Enter")
         page.wait_for_timeout(2000)
 
-        # Если Enter не сработал, кликаем по кнопке с силой
+        # Клик по кнопке, если Enter не сработал
         if page.locator("text=Monatliches Abo").count() == 0:
             btn = page.locator("button:visible").first
             if btn.count():
                 btn.click(force=True)
 
-        # Ждем появления результатов не более 10 секунд
         page.wait_for_selector("text=Monatliches Abo", timeout=10000)
         text = page.inner_text("body")
 
