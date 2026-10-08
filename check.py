@@ -4,7 +4,7 @@ import requests
 from playwright.sync_api import sync_playwright
 
 URL = "https://checkout.cycle.eco"
-CODE = "ВАШ_КОД"  # Укажите ваш код активации
+CODE = "ВАШ_ПРОМОКОД"  # Вставьте ваш код активации
 TOKEN = "8776708258:AAGISUWyK9ClzaahcjVVpENMVxqcjKI6m70"
 CHAT_ID = "1068573784"
 
@@ -14,7 +14,7 @@ def tg(text):
         data={"chat_id": CHAT_ID, "text": text}, 
         timeout=30
     )
-    print(f"Telegram response: status={res.status_code}, body={res.text}")
+    print(f"Telegram status: {res.status_code}")
 
 with sync_playwright() as p:
     b = p.chromium.launch()
@@ -23,13 +23,13 @@ with sync_playwright() as p:
         page.goto(URL, wait_until="domcontentloaded", timeout=30000)
         page.wait_for_timeout(3000)
 
-        # 1. Закрываем куки
+        # 1. Принимаем куки
         try:
             page.locator("button:has-text('Accept'), button:has-text('Akzeptieren'), #cookie-comply").first.click(timeout=3000)
         except Exception:
             pass
 
-        # 2. Выбор параметров на Шаге 1
+        # 2. Выбор параметров на Шаге 1 (если есть селекты)
         selects = page.locator("select")
         if selects.count() > 0:
             for i in range(selects.count()):
@@ -55,7 +55,7 @@ with sync_playwright() as p:
         else:
             inp.press("Enter")
 
-        # 4. Считываем результат
+        # 4. Шаг 3: Чтение тарифов
         page.wait_for_timeout(5000)
         text = page.inner_text("body")
 
@@ -67,13 +67,15 @@ with sync_playwright() as p:
 
     b.close()
 
-# Вычисление наличия мест
+# Подсчёт вариантов
 plans = len(re.findall(r"Monatliches Abo|Monthly subscription|Abo", text, re.IGNORECASE))
 soon = len(re.findall(r"Benachrichtige mich|Notify me|Out of stock|скоро", text, re.IGNORECASE))
-print(f"тарифов: {plans}, 'скоро в наличии': {soon}")
+available = plans - soon
 
-# Отправка сообщений
+print(f"Всего тарифов: {plans}, занято: {soon}, свободно: {available}")
+
+# Отправка сообщений в Telegram при каждом запуске
 if plans > 0 and soon < plans:
-    tg(f"🔔 СРОЧНО! Появился велосипед! ({plans - soon} из {plans})\n{URL}\nКод: {CODE}")
+    tg(f"🔔 СРОЧНО! Появился велосипед! ({available} из {plans})\n{URL}\nКод: {CODE}")
 else:
-    tg(f"✅ Проверка выполнена. Найдено тарифов: {plans}, из них занято: {soon}. Свободных нет.")
+    tg(f"✅ Проверка выполнена.\nТарифов найдено: {plans}\nИз них недоступно: {soon}\nСвободных велосипедов нет.")
