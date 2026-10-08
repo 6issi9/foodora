@@ -3,7 +3,7 @@ import re
 import requests
 from playwright.sync_api import sync_playwright
 
-URL = "https://www.foodora.at/subscription"
+URL = "https://checkout.cycle.eco"
 CODE = "ВАШ_КОД"
 TOKEN = "ВАШ_ТОКЕН"
 CHAT_ID = "ВАШ_CHAT_ID"
@@ -19,33 +19,41 @@ with sync_playwright() as p:
         page.goto(URL, wait_until="domcontentloaded", timeout=30000)
         page.wait_for_timeout(3000)
 
-        # 1. Закрываем баннер куки
+        # 1. Принимаем куки, если есть
         try:
-            page.locator("#cookie-comply, .cookie-comply, button:has-text('Accept'), button:has-text('Akzeptieren'), button:has-text('Allow')").first.click(timeout=3000)
+            page.locator("button:has-text('Accept'), button:has-text('Akzeptieren'), #cookie-comply").first.click(timeout=3000)
         except Exception:
             pass
 
-        # 2. Переходим к форме ввода кода (если поля еще нет на экране)
-        if page.locator("input[placeholder*='Gutschein'], input[placeholder*='Voucher'], input[placeholder*='Code']").count() == 0:
-            # Кликаем по первой подходящей кнопке или ссылке на стартовой странице
-            start_btn = page.locator("button:visible, a:visible").first
-            if start_btn.count() > 0:
-                start_btn.click(force=True)
-                page.wait_for_timeout(3000)
+        # 2. Если мы на Шаге 1 (выбор страны/города/компании) — выбираем выпадающие списки или жмем Далее
+        selects = page.locator("select")
+        if selects.count() > 0:
+            for i in range(selects.count()):
+                try:
+                    # Выбираем первый вариант в каждом селекте (Страна/Город/Foodora)
+                    selects.nth(i).select_option(index=1)
+                except Exception:
+                    pass
+            page.wait_for_timeout(1000)
 
-        # 3. Находим поле ввода кода (Gutscheincode)
-        inp = page.locator("input[placeholder*='Gutschein'], input[placeholder*='Voucher'], input[placeholder*='Code'], input[placeholder*='code'], input[type='text']").first
+        # Жмем кнопку продолжить/далее
+        next_btn = page.locator("button:has-text('Weiter'), button:has-text('Next'), button:has-text('Continue')").first
+        if next_btn.count() > 0 and next_btn.is_visible():
+            next_btn.click(force=True)
+            page.wait_for_timeout(2000)
+
+        # 3. Шаг 2: Ввод кода активации
+        inp = page.locator("input[placeholder*='Gutschein'], input[placeholder*='Voucher'], input[placeholder*='Code'], input:visible").first
         inp.fill(CODE)
 
-        # 4. Нажимаем кнопку применения (Anwenden / Apply)
-        btn_apply = page.locator("button:has-text('Anwenden'), button:has-text('Apply'), button:has-text('Submit')").first
-        if btn_apply.count() > 0:
+        btn_apply = page.locator("button:has-text('Anwenden'), button:has-text('Apply'), button[type='submit']").first
+        if btn_apply.count() > 0 and btn_apply.is_visible():
             btn_apply.click(force=True)
         else:
             inp.press("Enter")
 
-        # 5. Ожидаем появления информации о тарифах
-        page.wait_for_timeout(4000)
+        # 4. Шаг 3: Проверка наличия тарифов
+        page.wait_for_timeout(5000)
         text = page.inner_text("body")
 
     except Exception as e:
@@ -56,9 +64,8 @@ with sync_playwright() as p:
 
     b.close()
 
-# Проверка наличия тарифов
 plans = len(re.findall(r"Monatliches Abo|Monthly subscription|Abo", text, re.IGNORECASE))
-soon = len(re.findall(r"Benachrichtige mich|Notify me|Out of stock|скоро", text, re.IGNORECASE))
+soon = len(re.findall(r"Benachrichtige mich|Notify me|Out of stock", text, re.IGNORECASE))
 print(f"тарифов: {plans}, 'скоро в наличии': {soon}")
 
 if plans > 0 and soon < plans:
