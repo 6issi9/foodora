@@ -14,34 +14,31 @@ def tg(text):
 
 with sync_playwright() as p:
     b = p.chromium.launch()
-    page = b.new_page(viewport={"width": 1280, "height": 800})
+    page = b.new_page(viewport={"width": 430, "height": 900})
     try:
+        # Загружаем страницу
         page.goto(URL, wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_timeout(4000)
+        page.wait_for_timeout(3000)
 
-        # Пробуем кликнуть по куки
-        for selector in ["#cookie-comply", ".cookie-comply", "button:has-text('Accept')", "button:has-text('Akzeptieren')"]:
-            if page.locator(selector).count() > 0:
-                try:
-                    page.locator(selector).first.click(timeout=2000)
-                except Exception:
-                    pass
+        # 1. Закрываем баннер куки (DE / EN)
+        try:
+            page.locator("#cookie-comply, .cookie-comply, button:has-text('Accept'), button:has-text('Akzeptieren'), button:has-text('Allow')").first.click(timeout=3000)
+        except Exception:
+            pass
 
-        # Делаем скриншот, чтобы точно увидеть, что на экране
-        page.screenshot(path="debug.png", full_page=True)
+        # 2. Поиск поля ввода (DE + EN)
+        inp = page.locator("input[placeholder*='Gutschein'], input[placeholder*='Voucher'], input[placeholder*='Code'], input[placeholder*='code']").first
+        inp.fill(CODE)
 
-        # Ждем только видимые поля
-        inp = page.locator("input:visible").first
-        inp.fill(CODE, timeout=5000)
-        inp.press("Enter")
-        page.wait_for_timeout(2000)
+        # 3. Нажатие кнопки применения (DE + EN)
+        btn_apply = page.locator("button:has-text('Anwenden'), button:has-text('Apply'), button:has-text('Submit')").first
+        if btn_apply.count() > 0:
+            btn_apply.click(force=True)
+        else:
+            inp.press("Enter")
 
-        if page.locator("text=Monatliches Abo").count() == 0:
-            btn = page.locator("button:visible").first
-            if btn.count():
-                btn.click(force=True)
-
-        page.wait_for_selector("text=Monatliches Abo", timeout=10000)
+        # 4. Ожидание загрузки подписок
+        page.wait_for_selector("text=Monatliches Abo, text=Monthly subscription", timeout=15000)
         text = page.inner_text("body")
 
     except Exception as e:
@@ -52,8 +49,9 @@ with sync_playwright() as p:
 
     b.close()
 
-plans = len(re.findall(r"Monatliches Abo", text))
-soon = len(re.findall(r"Benachrichtige mich", text))
+# Проверка результатов на обоих языках
+plans = len(re.findall(r"Monatliches Abo|Monthly subscription", text, re.IGNORECASE))
+soon = len(re.findall(r"Benachrichtige mich|Notify me|Out of stock", text, re.IGNORECASE))
 print(f"тарифов: {plans}, 'скоро в наличии': {soon}")
 
 if plans > 0 and soon < plans:
