@@ -15,7 +15,7 @@ with sync_playwright() as p:
     page = b.new_page(viewport={"width": 430, "height": 900})
     try:
         page.goto(URL, wait_until="networkidle", timeout=60000)
-        inp = page.locator("input:visible").first
+        inp = page.locator("input[type='text']:visible, input[type='password']:visible, input:not([type='radio']):visible").first
         inp.fill(CODE)
         inp.press("Enter")
         page.wait_for_timeout(1500)
