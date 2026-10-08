@@ -65,8 +65,12 @@ with sync_playwright() as p:
     b.close()
 
 plans = len(re.findall(r"Monatliches Abo|Monthly subscription|Abo", text, re.IGNORECASE))
-soon = len(re.findall(r"Benachrichtige mich|Notify me|Out of stock", text, re.IGNORECASE))
+soon = len(re.findall(r"Benachrichtige mich|Notify me|Out of stock|скоро", text, re.IGNORECASE))
 print(f"тарифов: {plans}, 'скоро в наличии': {soon}")
 
+# Если что-то появилось — шлем важное уведомление
 if plans > 0 and soon < plans:
-    tg(f"🔔 Что-то появилось в наличии! ({plans - soon} из {plans})\n{URL}\nКод: {CODE}")
+    tg(f"🔔 СРОЧНО! Появился велосипед! ({plans - soon} из {plans})\n{URL}\nКод: {CODE}")
+else:
+    # Тестовое сообщение, что проверка прошла (потом можно убрать)
+    tg(f"✅ Проверка выполнена. Найдено тарифов: {plans}, занято: {soon}. Свободных нет.")
