@@ -19,11 +19,16 @@ with sync_playwright() as p:
         inp.fill(CODE)
         inp.press("Enter")
         page.wait_for_timeout(1500)
-        # если Enter не сработал, жмём кнопку
-        if page.locator("text=Monatliches Abo").count() == 0:
-            btn = page.locator("button:visible").first
-            if btn.count():
-                btn.click()
+            # Закрываем баннер куки, если он появился
+    try:
+        page.locator("#cookie-comply, .cookie-comply, button:has-text('Accept'), button:has-text('Akzeptieren')").first.click(timeout=3000)
+    except Exception:
+        pass
+ # если Enter не сработал, жмём кнопку
+    if page.locator("text=Monatliches Abo").count() == 0:
+        btn = page.locator("button:visible").first
+        if btn.count():
+            btn.click(force=True)
         page.wait_for_selector("text=Monatliches Abo", timeout=30000)
         page.wait_for_timeout(2000)
         text = page.inner_text("body")
